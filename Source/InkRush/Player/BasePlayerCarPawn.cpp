@@ -174,7 +174,7 @@ void ABasePlayerCarPawn::Move(const FInputActionInstance& Instance)
 
 		// add movement 
 		AddMovementInput(GetActorForwardVector(), MovementVector.Y);
-		UE_LOG(LogTemp, Warning, TEXT("[%s]"), *(MovementVector.X * GetActorRightVector() * TorquePower).ToString())
+		//UE_LOG(LogTemp, Warning, TEXT("[%s]"), *(MovementVector.X * GetActorRightVector() * TorquePower).ToString())
 		BoxComponent->AddTorqueInRadians(FVector(0.f, 0.f, MovementVector.X * TorquePower));
 		//AddMovementInput(RightDirection, MovementVector.X);
 	}
