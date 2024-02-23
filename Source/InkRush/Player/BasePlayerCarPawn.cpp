@@ -39,6 +39,17 @@ ABasePlayerCarPawn::ABasePlayerCarPawn()
 	CarBackRight->SetupAttachment(Mesh);
 	CarBackLeft = CreateDefaultSubobject<USceneComponent>(TEXT("BackLeft"));
 	CarBackLeft->SetupAttachment(Mesh);
+
+	// Create a camera boom (pulls in towards the player if there is a collision)
+	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+	SpringArmComponent->SetupAttachment(RootComponent);
+	SpringArmComponent->TargetArmLength = 1400.0f; // The camera follows at this distance behind the character	
+	SpringArmComponent->bUsePawnControlRotation = true; // Rotate the arm based on the controller
+
+	// Create a follow camera
+	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
+	CameraComponent->SetupAttachment(SpringArmComponent, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
+	CameraComponent->bUsePawnControlRotation = false;
 	
 }
 
@@ -87,39 +98,39 @@ void ABasePlayerCarPawn::Tick(float DeltaTime)
 	
 	FHitResult FRHit;
 	float FRSuspentionRatio = 0.f;
-	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), ForwardRight, ForwardRight + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::ForOneFrame, FRHit, true))
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), ForwardRight, ForwardRight + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, FRHit, true))
 	{
 		FRSuspentionRatio = 1.0f - (FRHit.Distance / SuspensionLength);
 	}	
-	DrawDebugString(GetWorld(), ForwardRight, *FString::Printf(TEXT("[%f]"),  FRSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+	//DrawDebugString(GetWorld(), ForwardRight, *FString::Printf(TEXT("[%f]"),  FRSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
 	
 
 	FHitResult FLHit;
 	float FLSuspentionRatio = 0.f;
-	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), ForwardLeft, ForwardLeft + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::ForOneFrame, FLHit, true))
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), ForwardLeft, ForwardLeft + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, FLHit, true))
 	{
 		FLSuspentionRatio = 1.0f - (FLHit.Distance / SuspensionLength);
 	}
-	DrawDebugString(GetWorld(), ForwardLeft, *FString::Printf(TEXT("[%f]"),  FLSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+	//DrawDebugString(GetWorld(), ForwardLeft, *FString::Printf(TEXT("[%f]"),  FLSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
 
 
 	FHitResult BRHit;
 	float BRSuspentionRatio = 0.f;
-	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), BackRight, BackRight + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::ForOneFrame, BRHit, true))
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), BackRight, BackRight + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, BRHit, true))
 	{
 		BRSuspentionRatio = 1.0f - (BRHit.Distance / SuspensionLength);
 	}
-	DrawDebugString(GetWorld(), BackRight, *FString::Printf(TEXT("[%f]"), BRSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+	//DrawDebugString(GetWorld(), BackRight, *FString::Printf(TEXT("[%f]"), BRSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
 
 
 	FHitResult BLHit;
 	float BLSuspentionRatio = 0.f;
 	
-	if(UKismetSystemLibrary::LineTraceSingle(GetWorld(), BackLeft, BackLeft + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::ForOneFrame, BLHit, true))
+	if(UKismetSystemLibrary::LineTraceSingle(GetWorld(), BackLeft, BackLeft + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, BLHit, true))
 	{ 
 		BLSuspentionRatio = 1.0f - (BLHit.Distance / SuspensionLength);
 	}
-	DrawDebugString(GetWorld(), BackLeft, *FString::Printf(TEXT("[%f]"), BLSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+	//DrawDebugString(GetWorld(), BackLeft, *FString::Printf(TEXT("[%f]"), BLSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
 
 	const FVector SuspentionForce = GetActorUpVector() * SuspensionPower;
 
@@ -135,12 +146,12 @@ void ABasePlayerCarPawn::Tick(float DeltaTime)
 	//const FVector ActorLeft = ActorLocation - GetActorRightVector() * length;
 	//const FVector ActorForward = ActorLocation + GetActorForwardVector() * length;
 	//const FVector ActorBack = ActorLocation - GetActorForwardVector() * length;
-	DrawDebugSphere(GetWorld(), ForwardRight, 10, 10, FColor::Red, false, 2, 1, 1);
-	DrawDebugSphere(GetWorld(), ForwardLeft, 10, 10, FColor::Blue, false, 2, 1, 1);
-	DrawDebugSphere(GetWorld(), BackRight, 10, 10, FColor::Green, false, 2, 1, 1);
-	DrawDebugSphere(GetWorld(), BackLeft, 10, 10, FColor::Magenta, false, 2, 1, 1);
-
-	DrawDebugLine(GetWorld(),GetActorLocation(), GetActorLocation() + GetActorUpVector() * 100, FColor::Black, false, 2, 1, 1);
+	//DrawDebugSphere(GetWorld(), ForwardRight, 10, 10, FColor::Red, false, 2, 1, 1);
+	//DrawDebugSphere(GetWorld(), ForwardLeft, 10, 10, FColor::Blue, false, 2, 1, 1);
+	//DrawDebugSphere(GetWorld(), BackRight, 10, 10, FColor::Green, false, 2, 1, 1);
+	//DrawDebugSphere(GetWorld(), BackLeft, 10, 10, FColor::Magenta, false, 2, 1, 1);
+	//
+	//DrawDebugLine(GetWorld(),GetActorLocation(), GetActorLocation() + GetActorUpVector() * 100, FColor::Black, false, 2, 1, 1);
 }
 
 // Called to bind functionality to input
