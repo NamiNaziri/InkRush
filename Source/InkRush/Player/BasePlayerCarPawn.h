@@ -117,7 +117,8 @@ protected:
 	UFUNCTION()
 	virtual void HealthBecomeZero(AActor* OwnerActor);
 
-
+	UFUNCTION(Server, Reliable, WithValidation)
+	void CarTickLogic();
 private:
 	UPROPERTY()
 	double HalfXBox;
