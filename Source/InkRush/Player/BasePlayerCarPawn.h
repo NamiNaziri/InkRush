@@ -69,6 +69,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Car|Movement")
 	float MovementForcePower = 10000.f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Car|Movement")
+	float MovementRightForcePower = 10000.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Car|Movement")
 	float MaxMovementSpeed = 20.f;
@@ -110,11 +113,11 @@ protected:
 	UFUNCTION()
 	void Move(const FInputActionInstance& Instance);
 
-	UFUNCTION(Server, Reliable, WithValidation)
+	UFUNCTION(Server, Reliable)
 	void ServerMove(const FVector2D& MovementVector);
 
-	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void MulticastMove(const FTransform& Transfrom);
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastMove(const FVector2D& MovementVector);
 
 	UFUNCTION()
 	void RandomImpulse(const FInputActionInstance& Instance);
