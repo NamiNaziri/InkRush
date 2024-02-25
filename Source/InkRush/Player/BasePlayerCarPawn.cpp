@@ -22,7 +22,14 @@ ABasePlayerCarPawn::ABasePlayerCarPawn()
 	PrimaryActorTick.bCanEverTick = true;
 	BoxComponent = CreateDefaultSubobject <UBoxComponent>(TEXT("Box Component"));
 	BoxComponent->InitBoxExtent(FVector(50.f, 50.f, 50.f));
+	BoxComponent->SetIsReplicated(true);
+
 	SetRootComponent(BoxComponent);
+
+	if (!HasAuthority())
+	{
+		BoxComponent->SetSimulatePhysics(false);
+	}
 
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	Mesh->SetupAttachment(RootComponent);
@@ -78,7 +85,11 @@ void ABasePlayerCarPawn::BeginPlay()
 void ABasePlayerCarPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+	if (IsLocallyControlled())
+	{
+		ServerCarTickLogic();
+	}
+	/*
 	FVector ActorLocation = GetActorLocation();
 
 	const FVector ForwardRight = ActorLocation + GetActorForwardVector() * HalfXBox + GetActorRightVector() * HalfYBox;
@@ -127,9 +138,9 @@ void ABasePlayerCarPawn::Tick(float DeltaTime)
 
 	FHitResult BLHit;
 	float BLSuspentionRatio = 0.f;
-	
+
 	if(UKismetSystemLibrary::LineTraceSingle(GetWorld(), BackLeft, BackLeft + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, BLHit, true))
-	{ 
+	{
 		BLSuspentionRatio = 1.0f - (BLHit.Distance / SuspensionLength);
 	}
 	//DrawDebugString(GetWorld(), BackLeft, *FString::Printf(TEXT("[%f]"), BLSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
@@ -141,7 +152,7 @@ void ABasePlayerCarPawn::Tick(float DeltaTime)
 	BoxComponent->AddForceAtLocation(SuspentionForce * FLSuspentionRatio, ForwardLeft + DownVectorSuspension);
 	BoxComponent->AddForceAtLocation(SuspentionForce * BRSuspentionRatio, BackRight + DownVectorSuspension);
 	BoxComponent->AddForceAtLocation(SuspentionForce * BLSuspentionRatio, BackLeft+ DownVectorSuspension);
-
+	*/
 
 	//const float length = BoxComponent->GetScaledBoxExtent().X;
 	//const FVector ActorRight = ActorLocation + GetActorRightVector() * length;
@@ -169,28 +180,96 @@ void ABasePlayerCarPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 void ABasePlayerCarPawn::Move(const FInputActionInstance& Instance)
 {
-
 	// input is a Vector2D
 	FVector2D MovementVector = Instance.GetValue().Get<FVector2D>();
-
-	if (Controller != nullptr)
+	if (IsLocallyControlled())
 	{
-		// find out which way is forward
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
-
-		// get forward vector
-		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-
-		// get right vector 
-		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-
-		// add movement 
-		AddMovementInput(GetActorForwardVector(), MovementVector.Y);
-		//UE_LOG(LogTemp, Warning, TEXT("[%s]"), *(MovementVector.X * GetActorRightVector() * TorquePower).ToString())
-		BoxComponent->AddTorqueInRadians(FVector(0.f, 0.f, MovementVector.X * TorquePower));
-		//AddMovementInput(RightDirection, MovementVector.X);
+		ServerMove(MovementVector);
 	}
+	
+
+}
+
+void ABasePlayerCarPawn::ServerMove_Implementation(const FVector2D& MovementVector)
+{
+	
+		
+
+		if (Controller != nullptr)
+		{
+			// find out which way is forward
+			const FRotator Rotation = Controller->GetControlRotation();
+			const FRotator YawRotation(0, Rotation.Yaw, 0);
+
+			// get forward vector
+			const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+
+			// get right vector 
+			const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+			// add movement 
+			//AddMovementInput(GetActorForwardVector(), MovementVector.Y);
+
+
+
+
+			BoxComponent->AddForce(MovementVector.Y * GetActorForwardVector() * MovementForcePower);
+			FVector Velocity = BoxComponent->GetPhysicsLinearVelocity();
+
+			if (Velocity.SquaredLength() > MaxMovementSpeed * MaxMovementSpeed)
+			{
+				BoxComponent->SetPhysicsLinearVelocity(Velocity.GetSafeNormal() * MaxMovementSpeed);
+			}
+			BoxComponent->AddTorqueInRadians(FVector(0.f, 0.f, MovementVector.X * TorquePower));
+			/*if (Velocity.Dot(GetActorForwardVector()) > 0)
+			{
+				if (MovementVector.Y > 0 &&
+				{
+					BoxComponent->AddForce(GetActorForwardVector() * MovementForcePower);
+				}
+				else
+				{
+
+				}
+			}
+			else
+			{
+				if (MovementVector.Y < 0 && Velocity.SquaredLength() < MaxMovementSpeed * MaxMovementSpeed)
+				{
+					BoxComponent->AddForce(-1 * GetActorForwardVector() * MovementForcePower);
+				}
+				else
+				{
+					BoxComponent->AddForce(MovementVector.Y * GetActorForwardVector() * MovementForcePower);
+				}
+			}*/
+
+
+			UE_LOG(LogTemp, Warning, TEXT("[%f]"), (MovementVector.Y))
+
+			//AddMovementInput(RightDirection, MovementVector.X);
+		}
+		//SetActorLocation(GetActorLocation() + GetActorForwardVector() * 2 * MovementVector.Y);
+		MulticastMove(GetActorTransform());
+	
+	
+}
+
+
+
+bool ABasePlayerCarPawn::ServerMove_Validate(const FVector2D& MovementVector)
+{
+	return true;
+}
+
+void ABasePlayerCarPawn::MulticastMove_Implementation(const FTransform& Transfrom)
+{
+	SetActorTransform(Transfrom);
+}
+
+bool ABasePlayerCarPawn::MulticastMove_Validate(const FTransform& Transfrom)
+{
+	return true;
 }
 
 void ABasePlayerCarPawn::RandomImpulse(const FInputActionInstance& Instance)
@@ -232,7 +311,150 @@ void ABasePlayerCarPawn::HealthBecomeZero(AActor* OwnerActor)
 	}*/
 }
 
-void ABasePlayerCarPawn::CarTickLogic_Implementation()
+void ABasePlayerCarPawn::ServerCarTickLogic_Implementation()
 {
+
+	FVector ActorLocation = GetActorLocation();
+
+	const FVector ForwardRight = ActorLocation + GetActorForwardVector() * HalfXBox + GetActorRightVector() * HalfYBox;
+	const FVector ForwardLeft = ActorLocation + GetActorForwardVector() * HalfXBox - GetActorRightVector() * HalfYBox;
+	const FVector BackRight = ActorLocation - GetActorForwardVector() * HalfXBox + GetActorRightVector() * HalfYBox;
+	const FVector BackLeft = ActorLocation - GetActorForwardVector() * HalfXBox - GetActorRightVector() * HalfYBox;
+
+	//Linetracebychannel
+
+	FVector drawPos(0.0f);
+	FColor drawColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f).ToFColor(true);
+	float drawDuration = 0.0f;
+	bool drawShadow = true;
+
+
+	FVector DownVectorSuspension = -1.0 * GetActorUpVector() * SuspensionLength;
+
+	const TArray<AActor*> ActorsToIgnore;
+
+	FHitResult FRHit;
+	float FRSuspentionRatio = 0.f;
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), ForwardRight, ForwardRight + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, FRHit, true))
+	{
+		FRSuspentionRatio = 1.0f - (FRHit.Distance / SuspensionLength);
+	}
+	//DrawDebugString(GetWorld(), ForwardRight, *FString::Printf(TEXT("[%f]"),  FRSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+
+
+	FHitResult FLHit;
+	float FLSuspentionRatio = 0.f;
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), ForwardLeft, ForwardLeft + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, FLHit, true))
+	{
+		FLSuspentionRatio = 1.0f - (FLHit.Distance / SuspensionLength);
+	}
+	//DrawDebugString(GetWorld(), ForwardLeft, *FString::Printf(TEXT("[%f]"),  FLSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+
+
+	FHitResult BRHit;
+	float BRSuspentionRatio = 0.f;
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), BackRight, BackRight + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, BRHit, true))
+	{
+		BRSuspentionRatio = 1.0f - (BRHit.Distance / SuspensionLength);
+	}
+	//DrawDebugString(GetWorld(), BackRight, *FString::Printf(TEXT("[%f]"), BRSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+
+
+	FHitResult BLHit;
+	float BLSuspentionRatio = 0.f;
+
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), BackLeft, BackLeft + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, BLHit, true))
+	{
+		BLSuspentionRatio = 1.0f - (BLHit.Distance / SuspensionLength);
+	}
+	//DrawDebugString(GetWorld(), BackLeft, *FString::Printf(TEXT("[%f]"), BLSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+
+	const FVector SuspentionForce = GetActorUpVector() * SuspensionPower;
+
+	//Apply forces
+	BoxComponent->AddForceAtLocation(SuspentionForce * FRSuspentionRatio, ForwardRight + DownVectorSuspension);
+	BoxComponent->AddForceAtLocation(SuspentionForce * FLSuspentionRatio, ForwardLeft + DownVectorSuspension);
+	BoxComponent->AddForceAtLocation(SuspentionForce * BRSuspentionRatio, BackRight + DownVectorSuspension);
+	BoxComponent->AddForceAtLocation(SuspentionForce * BLSuspentionRatio, BackLeft + DownVectorSuspension);
 }
 
+bool ABasePlayerCarPawn::ServerCarTickLogic_Validate()
+{
+
+	return true;
+}
+
+
+void ABasePlayerCarPawn::MulticastCarTickLogic_Implementation()
+{
+
+	FVector ActorLocation = GetActorLocation();
+
+	const FVector ForwardRight = ActorLocation + GetActorForwardVector() * HalfXBox + GetActorRightVector() * HalfYBox;
+	const FVector ForwardLeft = ActorLocation + GetActorForwardVector() * HalfXBox - GetActorRightVector() * HalfYBox;
+	const FVector BackRight = ActorLocation - GetActorForwardVector() * HalfXBox + GetActorRightVector() * HalfYBox;
+	const FVector BackLeft = ActorLocation - GetActorForwardVector() * HalfXBox - GetActorRightVector() * HalfYBox;
+
+	//Linetracebychannel
+
+	FVector drawPos(0.0f);
+	FColor drawColor = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f).ToFColor(true);
+	float drawDuration = 0.0f;
+	bool drawShadow = true;
+
+
+	FVector DownVectorSuspension = -1.0 * GetActorUpVector() * SuspensionLength;
+
+	const TArray<AActor*> ActorsToIgnore;
+
+	FHitResult FRHit;
+	float FRSuspentionRatio = 0.f;
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), ForwardRight, ForwardRight + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, FRHit, true))
+	{
+		FRSuspentionRatio = 1.0f - (FRHit.Distance / SuspensionLength);
+	}
+	//DrawDebugString(GetWorld(), ForwardRight, *FString::Printf(TEXT("[%f]"),  FRSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+
+
+	FHitResult FLHit;
+	float FLSuspentionRatio = 0.f;
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), ForwardLeft, ForwardLeft + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, FLHit, true))
+	{
+		FLSuspentionRatio = 1.0f - (FLHit.Distance / SuspensionLength);
+	}
+	//DrawDebugString(GetWorld(), ForwardLeft, *FString::Printf(TEXT("[%f]"),  FLSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+
+
+	FHitResult BRHit;
+	float BRSuspentionRatio = 0.f;
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), BackRight, BackRight + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, BRHit, true))
+	{
+		BRSuspentionRatio = 1.0f - (BRHit.Distance / SuspensionLength);
+	}
+	//DrawDebugString(GetWorld(), BackRight, *FString::Printf(TEXT("[%f]"), BRSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+
+
+	FHitResult BLHit;
+	float BLSuspentionRatio = 0.f;
+
+	if (UKismetSystemLibrary::LineTraceSingle(GetWorld(), BackLeft, BackLeft + DownVectorSuspension, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, BLHit, true))
+	{
+		BLSuspentionRatio = 1.0f - (BLHit.Distance / SuspensionLength);
+	}
+	//DrawDebugString(GetWorld(), BackLeft, *FString::Printf(TEXT("[%f]"), BLSuspentionRatio), NULL, drawColor, drawDuration, drawShadow);
+
+	const FVector SuspentionForce = GetActorUpVector() * SuspensionPower;
+
+	//Apply forces
+	BoxComponent->AddForceAtLocation(SuspentionForce * FRSuspentionRatio, ForwardRight + DownVectorSuspension);
+	BoxComponent->AddForceAtLocation(SuspentionForce * FLSuspentionRatio, ForwardLeft + DownVectorSuspension);
+	BoxComponent->AddForceAtLocation(SuspentionForce * BRSuspentionRatio, BackRight + DownVectorSuspension);
+	BoxComponent->AddForceAtLocation(SuspentionForce * BLSuspentionRatio, BackLeft + DownVectorSuspension);
+
+	
+}
+
+bool ABasePlayerCarPawn::MulticastCarTickLogic_Validate()
+{
+	return true;
+}

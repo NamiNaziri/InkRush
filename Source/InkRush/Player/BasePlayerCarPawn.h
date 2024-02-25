@@ -67,9 +67,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Player|Sound Cue")
 	TObjectPtr<USoundBase> ImpactSoundCue;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Car|Movement")
+	float MovementForcePower = 10000.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Player|Movement")
-	float MovementSpeed = 20.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"), Category = "Car|Movement")
+	float MaxMovementSpeed = 20.f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category = "Player|Movement")
 	TObjectPtr<UPawnMovementComponent> MovementComponent;
@@ -108,6 +110,12 @@ protected:
 	UFUNCTION()
 	void Move(const FInputActionInstance& Instance);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerMove(const FVector2D& MovementVector);
+
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MulticastMove(const FTransform& Transfrom);
+
 	UFUNCTION()
 	void RandomImpulse(const FInputActionInstance& Instance);
 
@@ -118,7 +126,10 @@ protected:
 	virtual void HealthBecomeZero(AActor* OwnerActor);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void CarTickLogic();
+	void ServerCarTickLogic();
+
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MulticastCarTickLogic();
 private:
 	UPROPERTY()
 	double HalfXBox;
